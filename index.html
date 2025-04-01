@@ -5,20 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel de Alertas de Cobrança</title>
   <script>
-    let alertasResolvidos = JSON.parse(localStorage.getItem('alertasResolvidos') || '{}');
-    let instituicoes = [
-      { nome: "CEBAMA", dias_para_cobrar: 30, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
-      { nome: "CEBAMA KIDS", dias_para_cobrar: 1, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
-      { nome: "CARITAS", dias_para_cobrar: 30, vencimentos: [7,8,10,12,14,15,20,25,27,30] },
-      { nome: "ARTECEB", dias_para_cobrar: 3, vencimentos: [10,11,12,14,17,20,21,24,28,30] },
-      { nome: "BELO JARDIM", dias_para_cobrar: 15, vencimentos: [5,6,10,15,20,25,30] },
-      { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
-    ];
+    document.addEventListener('DOMContentLoaded', () => {
+      const instituicoes = [
+        { nome: "CEBAMA", dias_para_cobrar: 30, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
+        { nome: "CEBAMA KIDS", dias_para_cobrar: 1, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
+        { nome: "CARITAS", dias_para_cobrar: 30, vencimentos: [7,8,10,12,14,15,20,25,27,30] },
+        { nome: "ARTECEB", dias_para_cobrar: 3, vencimentos: [10,11,12,14,17,20,21,24,28,30] },
+        { nome: "BELO JARDIM", dias_para_cobrar: 15, vencimentos: [5,6,10,15,20,25,30] },
+        { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
+      ];
 
-    function gerarAlertas() {
-      const dataSelecionada = document.getElementById('dataFiltro').value;
-      const filtroInstituicao = document.getElementById('instituicaoFiltro').value;
-      const hoje = dataSelecionada ? new Date(dataSelecionada) : new Date();
+      const hoje = new Date();
       const ano = 2025;
       const alertasHoje = [];
 
@@ -26,7 +23,7 @@
         for (let mes = 0; mes < 12; mes++) {
           inst.vencimentos.forEach(dia => {
             const venc = new Date(ano, mes, dia);
-            if (venc.getMonth() !== mes) return;
+            if (venc.getMonth() !== mes) return; // ignora datas inválidas
 
             const alerta = new Date(venc);
             alerta.setDate(alerta.getDate() + inst.dias_para_cobrar);
@@ -36,80 +33,28 @@
               alerta.getMonth() === hoje.getMonth() &&
               alerta.getFullYear() === hoje.getFullYear()
             ) {
-              const id = `${inst.nome}-${venc.toLocaleDateString()}`;
-              if (!alertasResolvidos[id]) {
-                if (!filtroInstituicao || filtroInstituicao === inst.nome) {
-                  alertasHoje.push({
-                    id,
-                    instituicao: inst.nome,
-                    vencimento: venc.toLocaleDateString()
-                  });
-                }
-              }
+              alertasHoje.push({
+                instituicao: inst.nome,
+                vencimento: venc.toLocaleDateString()
+              });
             }
           });
         }
       });
 
       const lista = document.getElementById('alertas');
-      lista.innerHTML = '';
 
       if (alertasHoje.length === 0) {
-        lista.innerHTML = '<li>Sem alertas para esta data ou todos já resolvidos.</li>';
-        document.getElementById('marcarTodos').style.display = 'none';
+        lista.innerHTML = '<li>Sem alertas para hoje.</li>';
       } else {
-        document.getElementById('marcarTodos').style.display = 'inline-block';
         alertasHoje.forEach(a => {
           const li = document.createElement('li');
-          const checkbox = document.createElement('input');
-          checkbox.type = 'checkbox';
-          checkbox.id = a.id;
-          checkbox.addEventListener('change', () => {
-            alertasResolvidos[a.id] = true;
-            localStorage.setItem('alertasResolvidos', JSON.stringify(alertasResolvidos));
-            gerarAlertas();
-          });
-          li.appendChild(checkbox);
-          const label = document.createElement('label');
-          label.htmlFor = a.id;
-          label.textContent = ` 🔔 ${a.instituicao} - Cobrar título com vencimento em ${a.vencimento}`;
-          li.appendChild(label);
+          li.textContent = `🔔 ${a.instituicao} - Cobrar título com vencimento em ${a.vencimento}`;
           lista.appendChild(li);
         });
-        if (!dataSelecionada && !filtroInstituicao) notificar(alertasHoje);
+        notificar(alertasHoje);
       }
-    }
-
-    function marcarTodosComoResolvidos() {
-      document.querySelectorAll('#alertas input[type="checkbox"]').forEach(cb => {
-        alertasResolvidos[cb.id] = true;
-      });
-      localStorage.setItem('alertasResolvidos', JSON.stringify(alertasResolvidos));
-      gerarAlertas();
-    }
-
-    function alterarPrazo() {
-      const instNome = document.getElementById('alterarInstituicao').value;
-      const novoPrazo = parseInt(document.getElementById('novoPrazo').value);
-      const inst = instituicoes.find(i => i.nome === instNome);
-      if (inst && !isNaN(novoPrazo)) {
-        inst.dias_para_cobrar = novoPrazo;
-        alert(`Prazo de cobrança atualizado para ${novoPrazo} dias em ${instNome}`);
-        gerarAlertas();
-      }
-    }
-
-    function adicionarVencimento() {
-      const instNome = document.getElementById('vencInstituicao').value;
-      const novoVenc = parseInt(document.getElementById('novoVenc').value);
-      const inst = instituicoes.find(i => i.nome === instNome);
-      if (inst && !isNaN(novoVenc) && !inst.vencimentos.includes(novoVenc)) {
-        inst.vencimentos.push(novoVenc);
-        inst.vencimentos.sort((a, b) => a - b);
-        alert(`Novo vencimento (${novoVenc}) adicionado para ${instNome}`);
-        gerarAlertas();
-      }
-    }
+    });
 
     function notificar(alertas) {
       if (!("Notification" in window)) return;
@@ -125,79 +70,17 @@
         });
       }
     }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      gerarAlertas();
-      setInterval(gerarAlertas, 30 * 60 * 1000);
-      document.getElementById('marcarTodos').addEventListener('click', marcarTodosComoResolvidos);
-      document.getElementById('dataFiltro').addEventListener('change', gerarAlertas);
-      document.getElementById('instituicaoFiltro').addEventListener('change', gerarAlertas);
-      document.getElementById('btnAlterarPrazo').addEventListener('click', alterarPrazo);
-      document.getElementById('btnAdicionarVenc').addEventListener('click', adicionarVencimento);
-    });
   </script>
   <style>
     body { font-family: Arial, sans-serif; background: #f8f9fa; color: #333; padding: 20px; }
     h1 { color: #222; }
     ul { padding-left: 20px; }
-    li { margin: 8px 0; list-style: none; }
-    label { margin-left: 8px; }
-    button { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
-    button:hover { background: #0056b3; }
-    .filtros, .configuracoes { margin-bottom: 15px; }
-    select, input[type="date"], input[type="number"] { padding: 5px; margin-right: 10px; }
+    li { margin: 8px 0; }
   </style>
 </head>
 <body>
   <h1>📆 Alertas de Cobrança - <span id="dataHoje"></span></h1>
-  <div class="filtros">
-    <label for="dataFiltro">📅 Filtrar por data:</label>
-    <input type="date" id="dataFiltro" />
-
-    <label for="instituicaoFiltro">🏫 Filtrar por instituição:</label>
-    <select id="instituicaoFiltro">
-      <option value="">Todas</option>
-      <option value="CEBAMA">CEBAMA</option>
-      <option value="CEBAMA KIDS">CEBAMA KIDS</option>
-      <option value="CARITAS">CARITAS</option>
-      <option value="ARTECEB">ARTECEB</option>
-      <option value="BELO JARDIM">BELO JARDIM</option>
-      <option value="FACDO">FACDO</option>
-    </select>
-  </div>
-
-  <div class="configuracoes">
-    <h3>⚙️ Configurações</h3>
-    <div>
-      <label>Alterar prazo de cobrança: </label>
-      <select id="alterarInstituicao">
-        <option value="CEBAMA">CEBAMA</option>
-        <option value="CEBAMA KIDS">CEBAMA KIDS</option>
-        <option value="CARITAS">CARITAS</option>
-        <option value="ARTECEB">ARTECEB</option>
-        <option value="BELO JARDIM">BELO JARDIM</option>
-        <option value="FACDO">FACDO</option>
-      </select>
-      <input type="number" id="novoPrazo" placeholder="dias" min="0" />
-      <button id="btnAlterarPrazo">Atualizar</button>
-    </div>
-    <div style="margin-top: 10px;">
-      <label>Adicionar novo vencimento: </label>
-      <select id="vencInstituicao">
-        <option value="CEBAMA">CEBAMA</option>
-        <option value="CEBAMA KIDS">CEBAMA KIDS</option>
-        <option value="CARITAS">CARITAS</option>
-        <option value="ARTECEB">ARTECEB</option>
-        <option value="BELO JARDIM">BELO JARDIM</option>
-        <option value="FACDO">FACDO</option>
-      </select>
-      <input type="number" id="novoVenc" placeholder="dia do mês" min="1" max="31" />
-      <button id="btnAdicionarVenc">Adicionar</button>
-    </div>
-  </div>
-
   <ul id="alertas"></ul>
-  <button id="marcarTodos" style="display: none;">✅ Marcar todos como resolvidos</button>
   <script>
     document.getElementById("dataHoje").textContent = new Date().toLocaleDateString();
   </script>
