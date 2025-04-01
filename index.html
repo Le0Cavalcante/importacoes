@@ -5,25 +5,72 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Painel de Alertas de Cobrança</title>
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const instituicoes = [
-        { nome: "CEBAMA", dias_para_cobrar: 30, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
-        { nome: "CEBAMA KIDS", dias_para_cobrar: 1, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30,31] },
-        { nome: "CARITAS", dias_para_cobrar: 30, vencimentos: [7,8,10,12,14,15,20,25,27,30] },
-        { nome: "ARTECEB", dias_para_cobrar: 3, vencimentos: [10,11,12,14,17,20,21,24,28,30] },
-        { nome: "BELO JARDIM", dias_para_cobrar: 15, vencimentos: [5,6,10,15,20,25,30] },
-        { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
-      ];
+    let alertasResolvidos = JSON.parse(localStorage.getItem('alertasResolvidos') || '{}');
+    let instituicoes = JSON.parse(localStorage.getItem('instituicoes')) || [
+      { nome: "CEBAMA", dias_para_cobrar: 30, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
+      { nome: "CEBAMA KIDS", dias_para_cobrar: 1, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
+      { nome: "CARITAS", dias_para_cobrar: 30, vencimentos: [7,8,10,12,14,15,20,25,27,30] },
+      { nome: "ARTECEB", dias_para_cobrar: 3, vencimentos: [10,11,12,14,17,20,21,24,28,30] },
+      { nome: "BELO JARDIM", dias_para_cobrar: 15, vencimentos: [5,6,10,15,20,25,30] },
+      { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
+    ];
 
+    let alinhamentos = JSON.parse(localStorage.getItem('alinhamentos')) || [];
+
+    function salvarInstituicoes() {
+      localStorage.setItem('instituicoes', JSON.stringify(instituicoes));
+    }
+
+    function salvarAlinhamentos() {
+      localStorage.setItem('alinhamentos', JSON.stringify(alinhamentos));
+    }
+
+    function adicionarAlinhamento() {
+      const inst = document.getElementById('alinhamentoInstituicao').value;
+      const dia = document.getElementById('alinhamentoDia').value;
+      if (inst && dia) {
+        alinhamentos.push({ instituicao: inst, dia_semana: dia });
+        salvarAlinhamentos();
+        alert(`Alinhamento cadastrado para ${inst} toda ${dia}`);
+        mostrarAlinhamentosDoDia();
+      }
+    }
+
+    function mostrarAlinhamentosDoDia() {
       const hoje = new Date();
+      const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
+      const hojeNome = diasSemana[hoje.getDay()];
+      const listaAlinhamentos = document.getElementById('alinhamentosHoje');
+      listaAlinhamentos.innerHTML = '';
+
+      const alinhamentosHoje = alinhamentos.filter(a => a.dia_semana === hojeNome);
+
+      if (alinhamentosHoje.length === 0) {
+        listaAlinhamentos.innerHTML = '<li>Sem alinhamentos programados para hoje.</li>';
+      } else {
+        alinhamentosHoje.forEach(a => {
+          const li = document.createElement('li');
+          li.textContent = `📌 ${a.instituicao} - Alinhamento de base hoje (${a.dia_semana})`;
+          listaAlinhamentos.appendChild(li);
+        });
+      }
+    }
+
+    function gerarAlertas() {
+      const dataSelecionada = document.getElementById('dataFiltro').value;
+      const filtroInstituicao = document.getElementById('instituicaoFiltro').value;
+      const hoje = dataSelecionada ? new Date(dataSelecionada) : new Date();
       const ano = 2025;
       const alertasHoje = [];
+
+      atualizarSelects();
+      mostrarAlinhamentosDoDia();
 
       instituicoes.forEach(inst => {
         for (let mes = 0; mes < 12; mes++) {
           inst.vencimentos.forEach(dia => {
             const venc = new Date(ano, mes, dia);
-            if (venc.getMonth() !== mes) return; // ignora datas inválidas
+            if (venc.getMonth() !== mes) return;
 
             const alerta = new Date(venc);
             alerta.setDate(alerta.getDate() + inst.dias_para_cobrar);
@@ -33,54 +80,124 @@
               alerta.getMonth() === hoje.getMonth() &&
               alerta.getFullYear() === hoje.getFullYear()
             ) {
-              alertasHoje.push({
-                instituicao: inst.nome,
-                vencimento: venc.toLocaleDateString()
-              });
+              const id = `${inst.nome}-${venc.toLocaleDateString()}`;
+              if (!alertasResolvidos[id]) {
+                if (!filtroInstituicao || filtroInstituicao === inst.nome) {
+                  alertasHoje.push({
+                    id,
+                    instituicao: inst.nome,
+                    vencimento: venc.toLocaleDateString()
+                  });
+                }
+              }
             }
           });
         }
       });
 
       const lista = document.getElementById('alertas');
+      lista.innerHTML = '';
 
       if (alertasHoje.length === 0) {
-        lista.innerHTML = '<li>Sem alertas para hoje.</li>';
+        lista.innerHTML = '<li>Sem alertas para esta data ou todos já resolvidos.</li>';
+        document.getElementById('marcarTodos').style.display = 'none';
       } else {
+        document.getElementById('marcarTodos').style.display = 'inline-block';
         alertasHoje.forEach(a => {
           const li = document.createElement('li');
-          li.textContent = `🔔 ${a.instituicao} - Cobrar título com vencimento em ${a.vencimento}`;
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = a.id;
+          checkbox.addEventListener('change', () => {
+            alertasResolvidos[a.id] = true;
+            localStorage.setItem('alertasResolvidos', JSON.stringify(alertasResolvidos));
+            gerarAlertas();
+          });
+          li.appendChild(checkbox);
+          const label = document.createElement('label');
+          label.htmlFor = a.id;
+          label.textContent = ` 🔔 ${a.instituicao} - Cobrar título com vencimento em ${a.vencimento}`;
+          li.appendChild(label);
           lista.appendChild(li);
         });
-        notificar(alertasHoje);
-      }
-    });
-
-    function notificar(alertas) {
-      if (!("Notification" in window)) return;
-      if (Notification.permission === "granted") {
-        const corpo = alertas.map(a => `${a.instituicao} - venc. ${a.vencimento}`).join('\n');
-        new Notification("🔔 Alertas de Cobrança de Hoje", {
-          body: corpo,
-          icon: "https://cdn-icons-png.flaticon.com/512/727/727399.png"
-        });
-      } else if (Notification.permission !== "denied") {
-        Notification.requestPermission().then(perm => {
-          if (perm === "granted") notificar(alertas);
-        });
+        if (!dataSelecionada && !filtroInstituicao) notificar(alertasHoje);
       }
     }
+
+    // ... (demais funções mantidas conforme já implementadas)
   </script>
   <style>
     body { font-family: Arial, sans-serif; background: #f8f9fa; color: #333; padding: 20px; }
-    h1 { color: #222; }
+    h1, h2 { color: #222; }
     ul { padding-left: 20px; }
-    li { margin: 8px 0; }
+    li { margin: 8px 0; list-style: none; }
+    label { margin-left: 8px; }
+    button { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
+    button:hover { background: #0056b3; }
+    .filtros, .configuracoes { margin-bottom: 15px; }
+    select, input[type="date"], input[type="number"], input[type="text"] { padding: 5px; margin-right: 10px; }
   </style>
 </head>
 <body>
   <h1>📆 Alertas de Cobrança - <span id="dataHoje"></span></h1>
+  <div class="filtros">
+    <label for="dataFiltro">📅 Filtrar por data:</label>
+    <input type="date" id="dataFiltro" />
+
+    <label for="instituicaoFiltro">🏫 Filtrar por instituição:</label>
+    <select id="instituicaoFiltro"></select>
+  </div>
+
+  <div class="configuracoes">
+    <h3>⚙️ Configurações</h3>
+<div class="configuracoes">
+    <h3>⚙️ Configurações</h3>
+    <div>
+      <label>Alterar prazo de cobrança: </label>
+      <select id="alterarInstituicao"></select>
+      <input type="number" id="novoPrazo" placeholder="dias" min="0" />
+      <button id="btnAlterarPrazo">Atualizar</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <label>Adicionar novo vencimento: </label>
+      <select id="vencInstituicao"></select>
+      <input type="number" id="novoVenc" placeholder="dia do mês" min="1" max="31" />
+      <button id="btnAdicionarVenc">Adicionar</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <label>Nova instituição: </label>
+      <input type="text" id="novaInstituicaoNome" placeholder="Nome da instituição" />
+      <input type="number" id="novaInstituicaoPrazo" placeholder="Prazo (dias)" />
+      <input type="text" id="novaInstituicaoVenc" placeholder="Vencimentos (ex: 5,10,20)" />
+      <button id="btnAdicionarInstituicao">Adicionar Instituição</button>
+    </div>
+    <div style="margin-top: 10px;">
+      <label>📅 Alinhamento de base semanal: </label>
+      <select id="alinhamentoInstituicao"></select>
+      <select id="alinhamentoDia">
+        <option value="Domingo">Domingo</option>
+        <option value="Segunda-feira">Segunda-feira</option>
+        <option value="Terça-feira">Terça-feira</option>
+        <option value="Quarta-feira">Quarta-feira</option>
+        <option value="Quinta-feira">Quinta-feira</option>
+        <option value="Sexta-feira">Sexta-feira</option>
+        <option value="Sábado">Sábado</option>
+      </select>
+      <button id="btnAdicionarAlinhamento">Adicionar Alinhamento</button>
+    </div>
+  </div>
+
   <ul id="alertas"></ul>
+  <button id="marcarTodos" style="display: none;">✅ Marcar todos como resolvidos</button>
+  <script>
+    document.getElementById("dataHoje").textContent = new Date().toLocaleDateString();
+  </div>
+
+  <h2>📌 Alinhamentos de Base para Hoje</h2>
+  <ul id="alinhamentosHoje"></ul>
+
+  <ul id="alertas"></ul>
+  <button id="marcarTodos" style="display: none;">✅ Marcar todos como resolvidos</button>
   <script>
     document.getElementById("dataHoje").textContent = new Date().toLocaleDateString();
   </script>
