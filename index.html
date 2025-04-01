@@ -15,45 +15,8 @@
       { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
     ];
 
-    let alinhamentos = JSON.parse(localStorage.getItem('alinhamentos')) || [];
-
     function salvarInstituicoes() {
       localStorage.setItem('instituicoes', JSON.stringify(instituicoes));
-    }
-
-    function salvarAlinhamentos() {
-      localStorage.setItem('alinhamentos', JSON.stringify(alinhamentos));
-    }
-
-    function adicionarAlinhamento() {
-      const inst = document.getElementById('alinhamentoInstituicao').value;
-      const dia = document.getElementById('alinhamentoDia').value;
-      if (inst && dia) {
-        alinhamentos.push({ instituicao: inst, dia_semana: dia });
-        salvarAlinhamentos();
-        alert(`Alinhamento cadastrado para ${inst} toda ${dia}`);
-        mostrarAlinhamentosDoDia();
-      }
-    }
-
-    function mostrarAlinhamentosDoDia() {
-      const hoje = new Date();
-      const diasSemana = ['Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado'];
-      const hojeNome = diasSemana[hoje.getDay()];
-      const listaAlinhamentos = document.getElementById('alinhamentosHoje');
-      listaAlinhamentos.innerHTML = '';
-
-      const alinhamentosHoje = alinhamentos.filter(a => a.dia_semana === hojeNome);
-
-      if (alinhamentosHoje.length === 0) {
-        listaAlinhamentos.innerHTML = '<li>Sem alinhamentos programados para hoje.</li>';
-      } else {
-        alinhamentosHoje.forEach(a => {
-          const li = document.createElement('li');
-          li.textContent = `📌 ${a.instituicao} - Alinhamento de base hoje (${a.dia_semana})`;
-          listaAlinhamentos.appendChild(li);
-        });
-      }
     }
 
     function gerarAlertas() {
@@ -64,7 +27,6 @@
       const alertasHoje = [];
 
       atualizarSelects();
-      mostrarAlinhamentosDoDia();
 
       instituicoes.forEach(inst => {
         for (let mes = 0; mes < 12; mes++) {
@@ -124,11 +86,102 @@
       }
     }
 
-    // ... (demais funções mantidas conforme já implementadas)
+    function atualizarSelects() {
+      const selects = [
+        document.getElementById('instituicaoFiltro'),
+        document.getElementById('alterarInstituicao'),
+        document.getElementById('vencInstituicao')
+      ];
+      selects.forEach(select => {
+        const valorSelecionado = select.value;
+        select.innerHTML = '<option value="">Todas</option>';
+        instituicoes.forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.nome;
+          opt.textContent = i.nome;
+          if (i.nome === valorSelecionado) opt.selected = true;
+          select.appendChild(opt);
+        });
+      });
+    }
+
+    function adicionarInstituicao() {
+      const nome = document.getElementById('novaInstituicaoNome').value.trim();
+      const prazo = parseInt(document.getElementById('novaInstituicaoPrazo').value);
+      const vencimentos = document.getElementById('novaInstituicaoVenc').value.trim().split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 31);
+
+      if (nome && !isNaN(prazo) && vencimentos.length > 0) {
+        instituicoes.push({ nome, dias_para_cobrar: prazo, vencimentos });
+        salvarInstituicoes();
+        alert(`Instituição ${nome} adicionada com sucesso!`);
+        gerarAlertas();
+      } else {
+        alert('Preencha todos os campos corretamente.');
+      }
+    }
+
+    function marcarTodosComoResolvidos() {
+      document.querySelectorAll('#alertas input[type="checkbox"]').forEach(cb => {
+        alertasResolvidos[cb.id] = true;
+      });
+      localStorage.setItem('alertasResolvidos', JSON.stringify(alertasResolvidos));
+      gerarAlertas();
+    }
+
+    function alterarPrazo() {
+      const instNome = document.getElementById('alterarInstituicao').value;
+      const novoPrazo = parseInt(document.getElementById('novoPrazo').value);
+      const inst = instituicoes.find(i => i.nome === instNome);
+      if (inst && !isNaN(novoPrazo)) {
+        inst.dias_para_cobrar = novoPrazo;
+        salvarInstituicoes();
+        alert(`Prazo de cobrança atualizado para ${novoPrazo} dias em ${instNome}`);
+        gerarAlertas();
+      }
+    }
+
+    function adicionarVencimento() {
+      const instNome = document.getElementById('vencInstituicao').value;
+      const novoVenc = parseInt(document.getElementById('novoVenc').value);
+      const inst = instituicoes.find(i => i.nome === instNome);
+      if (inst && !isNaN(novoVenc) && !inst.vencimentos.includes(novoVenc)) {
+        inst.vencimentos.push(novoVenc);
+        inst.vencimentos.sort((a, b) => a - b);
+        salvarInstituicoes();
+        alert(`Novo vencimento (${novoVenc}) adicionado para ${instNome}`);
+        gerarAlertas();
+      }
+    }
+
+    function notificar(alertas) {
+      if (!("Notification" in window)) return;
+      if (Notification.permission === "granted") {
+        const corpo = alertas.map(a => `${a.instituicao} - venc. ${a.vencimento}`).join('\n');
+        new Notification("🔔 Alertas de Cobrança de Hoje", {
+          body: corpo,
+          icon: "https://cdn-icons-png.flaticon.com/512/727/727399.png"
+        });
+      } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then(perm => {
+          if (perm === "granted") notificar(alertas);
+        });
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      gerarAlertas();
+      setInterval(gerarAlertas, 30 * 60 * 1000);
+      document.getElementById('marcarTodos').addEventListener('click', marcarTodosComoResolvidos);
+      document.getElementById('dataFiltro').addEventListener('change', gerarAlertas);
+      document.getElementById('instituicaoFiltro').addEventListener('change', gerarAlertas);
+      document.getElementById('btnAlterarPrazo').addEventListener('click', alterarPrazo);
+      document.getElementById('btnAdicionarVenc').addEventListener('click', adicionarVencimento);
+      document.getElementById('btnAdicionarInstituicao').addEventListener('click', adicionarInstituicao);
+    });
   </script>
   <style>
     body { font-family: Arial, sans-serif; background: #f8f9fa; color: #333; padding: 20px; }
-    h1, h2 { color: #222; }
+    h1 { color: #222; }
     ul { padding-left: 20px; }
     li { margin: 8px 0; list-style: none; }
     label { margin-left: 8px; }
@@ -150,8 +203,6 @@
 
   <div class="configuracoes">
     <h3>⚙️ Configurações</h3>
-<div class="configuracoes">
-    <h3>⚙️ Configurações</h3>
     <div>
       <label>Alterar prazo de cobrança: </label>
       <select id="alterarInstituicao"></select>
@@ -171,30 +222,7 @@
       <input type="text" id="novaInstituicaoVenc" placeholder="Vencimentos (ex: 5,10,20)" />
       <button id="btnAdicionarInstituicao">Adicionar Instituição</button>
     </div>
-    <div style="margin-top: 10px;">
-      <label>📅 Alinhamento de base semanal: </label>
-      <select id="alinhamentoInstituicao"></select>
-      <select id="alinhamentoDia">
-        <option value="Domingo">Domingo</option>
-        <option value="Segunda-feira">Segunda-feira</option>
-        <option value="Terça-feira">Terça-feira</option>
-        <option value="Quarta-feira">Quarta-feira</option>
-        <option value="Quinta-feira">Quinta-feira</option>
-        <option value="Sexta-feira">Sexta-feira</option>
-        <option value="Sábado">Sábado</option>
-      </select>
-      <button id="btnAdicionarAlinhamento">Adicionar Alinhamento</button>
-    </div>
   </div>
-
-  <ul id="alertas"></ul>
-  <button id="marcarTodos" style="display: none;">✅ Marcar todos como resolvidos</button>
-  <script>
-    document.getElementById("dataHoje").textContent = new Date().toLocaleDateString();
-  </div>
-
-  <h2>📌 Alinhamentos de Base para Hoje</h2>
-  <ul id="alinhamentosHoje"></ul>
 
   <ul id="alertas"></ul>
   <button id="marcarTodos" style="display: none;">✅ Marcar todos como resolvidos</button>
