@@ -6,7 +6,7 @@
   <title>Painel de Alertas de Cobrança</title>
   <script>
     let alertasResolvidos = JSON.parse(localStorage.getItem('alertasResolvidos') || '{}');
-    let instituicoes = JSON.parse(localStorage.getItem('instituicoes')) || [
+    let instituicoes = [
       { nome: "CEBAMA", dias_para_cobrar: 30, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
       { nome: "CEBAMA KIDS", dias_para_cobrar: 1, vencimentos: [1,5,6,7,8,9,10,12,13,15,20,21,25,26,30] },
       { nome: "CARITAS", dias_para_cobrar: 30, vencimentos: [7,8,10,12,14,15,20,25,27,30] },
@@ -15,18 +15,12 @@
       { nome: "FACDO", dias_para_cobrar: 5, vencimentos: [10,20] },
     ];
 
-    function salvarInstituicoes() {
-      localStorage.setItem('instituicoes', JSON.stringify(instituicoes));
-    }
-
     function gerarAlertas() {
       const dataSelecionada = document.getElementById('dataFiltro').value;
       const filtroInstituicao = document.getElementById('instituicaoFiltro').value;
       const hoje = dataSelecionada ? new Date(dataSelecionada) : new Date();
       const ano = 2025;
       const alertasHoje = [];
-
-      atualizarSelects();
 
       instituicoes.forEach(inst => {
         for (let mes = 0; mes < 12; mes++) {
@@ -86,40 +80,6 @@
       }
     }
 
-    function atualizarSelects() {
-      const selects = [
-        document.getElementById('instituicaoFiltro'),
-        document.getElementById('alterarInstituicao'),
-        document.getElementById('vencInstituicao')
-      ];
-      selects.forEach(select => {
-        const valorSelecionado = select.value;
-        select.innerHTML = '<option value="">Todas</option>';
-        instituicoes.forEach(i => {
-          const opt = document.createElement('option');
-          opt.value = i.nome;
-          opt.textContent = i.nome;
-          if (i.nome === valorSelecionado) opt.selected = true;
-          select.appendChild(opt);
-        });
-      });
-    }
-
-    function adicionarInstituicao() {
-      const nome = document.getElementById('novaInstituicaoNome').value.trim();
-      const prazo = parseInt(document.getElementById('novaInstituicaoPrazo').value);
-      const vencimentos = document.getElementById('novaInstituicaoVenc').value.trim().split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 31);
-
-      if (nome && !isNaN(prazo) && vencimentos.length > 0) {
-        instituicoes.push({ nome, dias_para_cobrar: prazo, vencimentos });
-        salvarInstituicoes();
-        alert(`Instituição ${nome} adicionada com sucesso!`);
-        gerarAlertas();
-      } else {
-        alert('Preencha todos os campos corretamente.');
-      }
-    }
-
     function marcarTodosComoResolvidos() {
       document.querySelectorAll('#alertas input[type="checkbox"]').forEach(cb => {
         alertasResolvidos[cb.id] = true;
@@ -134,7 +94,6 @@
       const inst = instituicoes.find(i => i.nome === instNome);
       if (inst && !isNaN(novoPrazo)) {
         inst.dias_para_cobrar = novoPrazo;
-        salvarInstituicoes();
         alert(`Prazo de cobrança atualizado para ${novoPrazo} dias em ${instNome}`);
         gerarAlertas();
       }
@@ -147,7 +106,6 @@
       if (inst && !isNaN(novoVenc) && !inst.vencimentos.includes(novoVenc)) {
         inst.vencimentos.push(novoVenc);
         inst.vencimentos.sort((a, b) => a - b);
-        salvarInstituicoes();
         alert(`Novo vencimento (${novoVenc}) adicionado para ${instNome}`);
         gerarAlertas();
       }
@@ -176,7 +134,6 @@
       document.getElementById('instituicaoFiltro').addEventListener('change', gerarAlertas);
       document.getElementById('btnAlterarPrazo').addEventListener('click', alterarPrazo);
       document.getElementById('btnAdicionarVenc').addEventListener('click', adicionarVencimento);
-      document.getElementById('btnAdicionarInstituicao').addEventListener('click', adicionarInstituicao);
     });
   </script>
   <style>
@@ -188,7 +145,7 @@
     button { margin-top: 10px; padding: 8px 12px; border: none; border-radius: 5px; background: #007bff; color: white; cursor: pointer; }
     button:hover { background: #0056b3; }
     .filtros, .configuracoes { margin-bottom: 15px; }
-    select, input[type="date"], input[type="number"], input[type="text"] { padding: 5px; margin-right: 10px; }
+    select, input[type="date"], input[type="number"] { padding: 5px; margin-right: 10px; }
   </style>
 </head>
 <body>
@@ -198,29 +155,44 @@
     <input type="date" id="dataFiltro" />
 
     <label for="instituicaoFiltro">🏫 Filtrar por instituição:</label>
-    <select id="instituicaoFiltro"></select>
+    <select id="instituicaoFiltro">
+      <option value="">Todas</option>
+      <option value="CEBAMA">CEBAMA</option>
+      <option value="CEBAMA KIDS">CEBAMA KIDS</option>
+      <option value="CARITAS">CARITAS</option>
+      <option value="ARTECEB">ARTECEB</option>
+      <option value="BELO JARDIM">BELO JARDIM</option>
+      <option value="FACDO">FACDO</option>
+    </select>
   </div>
 
   <div class="configuracoes">
     <h3>⚙️ Configurações</h3>
     <div>
       <label>Alterar prazo de cobrança: </label>
-      <select id="alterarInstituicao"></select>
+      <select id="alterarInstituicao">
+        <option value="CEBAMA">CEBAMA</option>
+        <option value="CEBAMA KIDS">CEBAMA KIDS</option>
+        <option value="CARITAS">CARITAS</option>
+        <option value="ARTECEB">ARTECEB</option>
+        <option value="BELO JARDIM">BELO JARDIM</option>
+        <option value="FACDO">FACDO</option>
+      </select>
       <input type="number" id="novoPrazo" placeholder="dias" min="0" />
       <button id="btnAlterarPrazo">Atualizar</button>
     </div>
     <div style="margin-top: 10px;">
       <label>Adicionar novo vencimento: </label>
-      <select id="vencInstituicao"></select>
+      <select id="vencInstituicao">
+        <option value="CEBAMA">CEBAMA</option>
+        <option value="CEBAMA KIDS">CEBAMA KIDS</option>
+        <option value="CARITAS">CARITAS</option>
+        <option value="ARTECEB">ARTECEB</option>
+        <option value="BELO JARDIM">BELO JARDIM</option>
+        <option value="FACDO">FACDO</option>
+      </select>
       <input type="number" id="novoVenc" placeholder="dia do mês" min="1" max="31" />
       <button id="btnAdicionarVenc">Adicionar</button>
-    </div>
-    <div style="margin-top: 10px;">
-      <label>Nova instituição: </label>
-      <input type="text" id="novaInstituicaoNome" placeholder="Nome da instituição" />
-      <input type="number" id="novaInstituicaoPrazo" placeholder="Prazo (dias)" />
-      <input type="text" id="novaInstituicaoVenc" placeholder="Vencimentos (ex: 5,10,20)" />
-      <button id="btnAdicionarInstituicao">Adicionar Instituição</button>
     </div>
   </div>
 
